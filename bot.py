@@ -1,6 +1,6 @@
-
 import telebot
 from telebot import types
+import sqlite3
 
 TOKEN = "8581414528:AAHImgFvDPlFDN-rRedxIYNc-NrQ_D8IyaU"
 CHANNEL_USERNAME = "@elonreklama3"
@@ -8,9 +8,19 @@ ADMIN_ID = 8577002578
 
 bot = telebot.TeleBot(TOKEN)
 
+# DATABASE
+conn = sqlite3.connect("database.db", check_same_thread=False)
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    referrals INTEGER DEFAULT 0
+)
+""")
+conn.commit()
+
 reklama_text = "Hozircha reklama yo'q"
-users = {}
-referrals = {}
 
 # OBUNA TEKSHIRISH
 def check_sub(user_id):
@@ -24,13 +34,20 @@ def check_sub(user_id):
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
-
-    # Referral
     args = message.text.split()
-    if len(args) > 1:
-        ref_id = int(args[1])
-        if ref_id != user_id:
-            referrals[ref_id] = referrals.get(ref_id, 0) + 1
+
+    cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.execute("INSERT INTO users (user_id) VALUES (?)", (user_id,))
+        conn.commit()
+
+        if len(args) > 1:
+            ref_id = int(args[1])
+            if ref_id != user_id:
+                cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id=?", (ref_id,))
+                conn.commit()
 
     if not check_sub(user_id):
         markup = types.InlineKeyboardMarkup()
@@ -40,17 +57,15 @@ def start(message):
         bot.send_message(message.chat.id, "❌ Kanalga obuna bo‘ling!", reply_markup=markup)
         return
 
-    users[user_id] = True
-
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("👥 Referalim", "📢 Reklama")
+    markup.add("👥 Referalim", "📊 Statistika")
     bot.send_message(message.chat.id, f"🎉 Xush kelibsiz!\n\n{reklama_text}", reply_markup=markup)
 
-# CHECK BUTTON
+# CHECK
 @bot.callback_query_handler(func=lambda call: call.data == "check")
 def check_button(call):
     if check_sub(call.from_user.id):
-        bot.answer_callback_query(call.id, "✅ Obuna tasdiqlandi!")
+        bot.answer_callback_query(call.id, "✅ Tasdiqlandi")
         bot.send_message(call.message.chat.id, "Qayta /start bosing")
     else:
         bot.answer_callback_query(call.id, "❌ Hali obuna bo‘lmagansiz!", show_alert=True)
@@ -60,20 +75,30 @@ def check_button(call):
 def referral_menu(message):
     user_id = message.from_user.id
     link = f"https://t.me/{bot.get_me().username}?start={user_id}"
-    count = referrals.get(user_id, 0)
+
+    cursor.execute("SELECT referrals FROM users WHERE user_id=?", (user_id,))
+    count = cursor.fetchone()[0]
+
+    bonus = count // 5
+
     bot.send_message(message.chat.id,
-                     f"🔗 Sizning referal linkingiz:\n{link}\n\n👥 Taklif qilganlar soni: {count}")
+                     f"🔗 Linkingiz:\n{link}\n\n👥 Takliflar: {count}\n🎁 Bonuslar: {bonus}")
 
-# REKLAMA KO'RISH
-@bot.message_handler(func=lambda m: m.text == "📢 Reklama")
-def reklama_show(message):
-    bot.send_message(message.chat.id, reklama_text)
+# STATISTIKA
+@bot.message_handler(func=lambda m: m.text == "📊 Statistika")
+def stats(message):
+    if message.from_user.id == ADMIN_ID:
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total = cursor.fetchone()[0]
+        bot.send_message(message.chat.id, f"👥 Jami foydalanuvchilar: {total}")
+    else:
+        bot.send_message(message.chat.id, "❌ Faqat admin uchun")
 
-# ADMIN REKLAMA QO'SHISH
+# REKLAMA QO'SHISH
 @bot.message_handler(commands=['reklama'])
 def add_reklama(message):
+    global reklama_text
     if message.from_user.id == ADMIN_ID:
-        global reklama_text
         reklama_text = message.text.replace("/reklama ", "")
         bot.send_message(message.chat.id, "✅ Reklama saqlandi!")
     else:
@@ -81,6 +106,9 @@ def add_reklama(message):
 
 print("Bot ishga tushdi...")
 bot.infinity_polling()
+
+
+
 
 
 
