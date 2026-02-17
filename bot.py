@@ -59,7 +59,17 @@ def start(message):
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("👥 Referalim", "📊 Statistika")
-    bot.send_message(message.chat.id, f"🎉 Xush kelibsiz!\n\n{reklama_text}", reply_markup=markup)
+    bot.send_message(message.chat.id,
+"""🔥 BONUS BOTGA XUSH KELIBSIZ!
+
+🎁 5 ta do‘st taklif qil → 1 BONUS
+🏆 Eng ko‘p taklif qilganlar sovg‘a oladi!
+
+Pastdagi tugmalar orqali boshlang 👇
+
+""" + reklama_text,
+reply_markup=markup)
+
 
 # CHECK
 @bot.callback_query_handler(func=lambda call: call.data == "check")
@@ -132,6 +142,7 @@ def add_reklama(message):
 
 print("Bot ishga tushdi...")
 bot.infinity_polling()
+
 
 
 
