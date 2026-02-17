@@ -70,19 +70,45 @@ def check_button(call):
     else:
         bot.answer_callback_query(call.id, "❌ Hali obuna bo‘lmagansiz!", show_alert=True)
 
-# REFERAL
 @bot.message_handler(func=lambda m: m.text == "👥 Referalim")
 def referral_menu(message):
     user_id = message.from_user.id
     link = f"https://t.me/{bot.get_me().username}?start={user_id}"
 
     cursor.execute("SELECT referrals FROM users WHERE user_id=?", (user_id,))
-    count = cursor.fetchone()[0]
+    result = cursor.fetchone()
+
+    if result:
+        count = result[0]
+    else:
+        count = 0
 
     bonus = count // 5
 
-    bot.send_message(message.chat.id,
-                     f"🔗 Linkingiz:\n{link}\n\n👥 Takliflar: {count}\n🎁 Bonuslar: {bonus}")
+    text = f"""🔥 DO‘STLARINGGA YUBOR!
+
+👥 Takliflar soni: {count}
+🎁 Bonuslar: {bonus}
+
+🔗 Shaxsiy linking:
+{link}
+
+5 ta odam = 1 bonus 🚀
+Ko‘proq taklif qil — ko‘proq yut!
+"""
+
+    markup = types.InlineKeyboardMarkup()
+    share_btn = types.InlineKeyboardButton(
+        "📣 Do‘stlarga ulashish",
+        url=f"https://t.me/share/url?url={link}"
+    )
+    markup.add(share_btn)
+
+    bot.send_message(message.chat.id, text, reply_markup=markup)
+
+
+
+
 
 # STATISTIKA
 @bot.message_handler(func=lambda m: m.text == "📊 Statistika")
@@ -106,6 +132,7 @@ def add_reklama(message):
 
 print("Bot ishga tushdi...")
 bot.infinity_polling()
+
 
 
 
