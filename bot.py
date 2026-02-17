@@ -141,7 +141,19 @@ def add_reklama(message):
         bot.send_message(message.chat.id, "❌ Siz admin emassiz")
 
 print("Bot ishga tushdi...")
+@bot.message_handler(commands=['top'])
+def top_users(message):
+    cursor.execute("SELECT user_id, referrals FROM users ORDER BY referrals DESC LIMIT 5")
+    top = cursor.fetchall()
+
+    text = "🏆 TOP 5 REFERAL:\n\n"
+
+    for i, user in enumerate(top, start=1):
+        text += f"{i}. ID: {user[0]} — {user[1]} ta\n"
+
+    bot.send_message(message.chat.id, text)
 bot.infinity_polling()
+
 
 
 
