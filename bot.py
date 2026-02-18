@@ -2,9 +2,9 @@ import telebot
 from telebot import types
 import sqlite3
 
-TOKEN = "8581414528:AAHImgFvDPlFDN-rRedxIYNc-NrQ_D8IyaU"
-CHANNEL_USERNAME = "@elonreklama3"
-ADMIN_ID = 8577002578
+TOKEN = "8581414528AAHImgFvDPlFDN-rRedxIYNc-NrQ_D8IyaU" 
+CHANNEL_USERNAME = "@elonreklama3" 
+ADMIN_ID = 8577002578  # o'zingizning ID
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -60,16 +60,13 @@ def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("👥 Referalim", "📊 Statistika")
     bot.send_message(message.chat.id,
-"""🔥 BONUS BOTGA XUSH KELIBSIZ!
+                     f"""🔥 BONUS BOTGA XUSH KELIBSIZ!
 
 🎁 5 ta do‘st taklif qil → 1 BONUS
 🏆 Eng ko‘p taklif qilganlar sovg‘a oladi!
 
-Pastdagi tugmalar orqali boshlang 👇
-
-""" + reklama_text,
-reply_markup=markup)
-
+{reklama_text}
+""", reply_markup=markup)
 
 # CHECK
 @bot.callback_query_handler(func=lambda call: call.data == "check")
@@ -80,6 +77,7 @@ def check_button(call):
     else:
         bot.answer_callback_query(call.id, "❌ Hali obuna bo‘lmagansiz!", show_alert=True)
 
+# REFERAL
 @bot.message_handler(func=lambda m: m.text == "👥 Referalim")
 def referral_menu(message):
     user_id = message.from_user.id
@@ -87,15 +85,17 @@ def referral_menu(message):
 
     cursor.execute("SELECT referrals FROM users WHERE user_id=?", (user_id,))
     result = cursor.fetchone()
+    count = result[0] if result else 0
 
-    if result:
-        count = result[0]
+    # Bonus hisoblash
+    if count >= 20:
+        bonus = 10
+    elif count >= 10:
+        bonus = 3
     else:
-        count = 0
+        bonus = count // 5
 
-    bonus = count // 5
-
-    text = f"""🔥 DO‘STLARINGGA YUBOR!
+    text = f"""🔥 DO‘STLARINGGA ULASHING!
 
 👥 Takliflar soni: {count}
 🎁 Bonuslar: {bonus}
@@ -103,7 +103,6 @@ def referral_menu(message):
 🔗 Shaxsiy linking:
 {link}
 
-5 ta odam = 1 bonus 🚀
 Ko‘proq taklif qil — ko‘proq yut!
 """
 
@@ -115,10 +114,6 @@ Ko‘proq taklif qil — ko‘proq yut!
     markup.add(share_btn)
 
     bot.send_message(message.chat.id, text, reply_markup=markup)
-
-
-
-
 
 # STATISTIKA
 @bot.message_handler(func=lambda m: m.text == "📊 Statistika")
@@ -140,7 +135,7 @@ def add_reklama(message):
     else:
         bot.send_message(message.chat.id, "❌ Siz admin emassiz")
 
-print("Bot ishga tushdi...")
+# TOP 5 REYTING
 @bot.message_handler(commands=['top'])
 def top_users(message):
     cursor.execute("SELECT user_id, referrals FROM users ORDER BY referrals DESC LIMIT 5")
@@ -152,20 +147,6 @@ def top_users(message):
         text += f"{i}. ID: {user[0]} — {user[1]} ta\n"
 
     bot.send_message(message.chat.id, text)
+
+print("Bot ishga tushdi...")
 bot.infinity_polling()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
