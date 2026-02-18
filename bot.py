@@ -2,7 +2,7 @@ import telebot
 from telebot import types
 import sqlite3
 
-TOKEN = "8581414528AAHImgFvDPlFDN-rRedxIYNc-NrQ_D8IyaU" 
+TOKEN = "8581414528:AAHImgFvDPlFDN-rRedxIYNc-NrQ_D8IyaU" 
 CHANNEL_USERNAME = "@elonreklama3" 
 ADMIN_ID = 8577002578  # o'zingizning ID
 
@@ -168,4 +168,5 @@ def add_reklama(message):
 
 print("Bot ishga tushdi...")
 bot.infinity_polling()
+
 
