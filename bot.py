@@ -11,7 +11,7 @@ ADMIN_USERNAME = "@elon_reklama456"  # reklama uchun
 
 bot = telebot.TeleBot(TOKEN)
 
-# ================= DATABASE =================
+# ====== DATABASE ======
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -30,21 +30,13 @@ CREATE TABLE IF NOT EXISTS reklama (
 
 conn.commit()
 
-# Default reklama
+# default reklama
 cursor.execute("SELECT * FROM reklama")
 if not cursor.fetchone():
     cursor.execute("INSERT INTO reklama (text) VALUES ('Hozircha reklama yo''q')")
     conn.commit()
 
-# ================= OBUNA TEKSHIRISH =================
-def check_sub(user_id):
-    try:
-        member = bot.get_chat_member(CHANNEL_USERNAME, user_id)
-        return member.status in ["member", "administrator", "creator"]
-    except:
-        return False
-
-# ================= START =================
+# ====== START ======
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
@@ -66,14 +58,6 @@ def start(message):
             except:
                 pass
 
-    if not check_sub(user_id):
-        markup = types.InlineKeyboardMarkup()
-        btn1 = types.InlineKeyboardButton("📢 Obuna bo‘lish", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")
-        btn2 = types.InlineKeyboardButton("✅ Tekshirish", callback_data="check")
-        markup.add(btn1, btn2)
-        bot.send_message(message.chat.id, "❌ Kanalga obuna bo‘ling!", reply_markup=markup)
-        return
-
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("👥 Referalim")
     markup.add("💰 Reklama berish")
@@ -86,22 +70,12 @@ def start(message):
                      f"""🔥 BONUS BOTGA XUSH KELIBSIZ!
 
 🎁 5 ta do‘st taklif qil → 1 BONUS
-🏆 Eng ko‘p taklif qilganlar sovg‘a oladi!
 
 📢 Reklama:
 {reklama_text}
 """, reply_markup=markup)
 
-# ================= OBUNA CHECK =================
-@bot.callback_query_handler(func=lambda call: call.data == "check")
-def check_button(call):
-    if check_sub(call.from_user.id):
-        bot.answer_callback_query(call.id, "✅ Tasdiqlandi")
-        bot.send_message(call.message.chat.id, "Qayta /start bosing")
-    else:
-        bot.answer_callback_query(call.id, "❌ Hali obuna bo‘lmagansiz!", show_alert=True)
-
-# ================= REFERAL =================
+# ====== REFERAL ======
 @bot.message_handler(func=lambda m: m.text == "👥 Referalim")
 def referral_menu(message):
     user_id = message.from_user.id
@@ -130,7 +104,7 @@ def referral_menu(message):
 
     bot.send_message(message.chat.id, text, reply_markup=markup)
 
-# ================= TOP 5 =================
+# ====== TOP 5 ======
 @bot.message_handler(func=lambda m: m.text == "🏆 Top 5")
 def top_users(message):
     cursor.execute("SELECT user_id, referrals FROM users ORDER BY referrals DESC LIMIT 5")
@@ -142,7 +116,7 @@ def top_users(message):
 
     bot.send_message(message.chat.id, text)
 
-# ================= REKLAMA BERISH =================
+# ====== REKLAMA BERISH ======
 @bot.message_handler(func=lambda m: m.text == "💰 Reklama berish")
 def reklama_buyurtma(message):
     text = f"""💰 REKLAMA NARXLARI:
@@ -150,12 +124,12 @@ def reklama_buyurtma(message):
 1 kun — 15 000 so'm
 3 kun — 35 000 so'm
 
-To‘lov va buyurtma uchun admin:
+Buyurtma uchun admin:
 {ADMIN_USERNAME}
 """
     bot.send_message(message.chat.id, text)
 
-# ================= ADMIN REKLAMA QO'SHISH =================
+# ====== ADMIN REKLAMA QO'SHISH ======
 @bot.message_handler(commands=['reklama'])
 def add_reklama(message):
     if message.from_user.id == ADMIN_ID:
@@ -168,5 +142,10 @@ def add_reklama(message):
 
 print("Bot ishga tushdi...")
 bot.infinity_polling()
+
+
+
+
+
 
 
