@@ -11,7 +11,7 @@ ADMIN_USERNAME = "@elon_reklama456"  # reklama uchun
 
 bot = telebot.TeleBot(TOKEN)
 
-# ====== DATABASE ======
+# ========= DATABASE =========
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -28,6 +28,12 @@ CREATE TABLE IF NOT EXISTS reklama (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS premium (
+    text TEXT
+)
+""")
+
 conn.commit()
 
 # default reklama
@@ -36,7 +42,12 @@ if not cursor.fetchone():
     cursor.execute("INSERT INTO reklama (text) VALUES ('Hozircha reklama yo''q')")
     conn.commit()
 
-# ====== START ======
+cursor.execute("SELECT * FROM premium")
+if not cursor.fetchone():
+    cursor.execute("INSERT INTO premium (text) VALUES ('')")
+    conn.commit()
+
+# ========= START =========
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
@@ -59,23 +70,35 @@ def start(message):
                 pass
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("👥 Referalim")
+    markup.add("👥 Referalim", "🏆 Top 5")
+    markup.add("📊 Statistika")
     markup.add("💰 Reklama berish")
-    markup.add("🏆 Top 5")
 
     cursor.execute("SELECT text FROM reklama")
     reklama_text = cursor.fetchone()[0]
 
+    cursor.execute("SELECT text FROM premium")
+    premium_text = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+
     bot.send_message(message.chat.id,
                      f"""🔥 BONUS BOTGA XUSH KELIBSIZ!
 
-🎁 5 ta do‘st taklif qil → 1 BONUS
+👥 Jami foydalanuvchilar: {total_users}
+
+{premium_text}
+
+🎁 5 ta do‘st = 1 bonus
+🎁 10 ta do‘st = 3 bonus
+🎁 20 ta do‘st = 10 bonus
 
 📢 Reklama:
 {reklama_text}
 """, reply_markup=markup)
 
-# ====== REFERAL ======
+# ========= REFERAL =========
 @bot.message_handler(func=lambda m: m.text == "👥 Referalim")
 def referral_menu(message):
     user_id = message.from_user.id
@@ -84,9 +107,14 @@ def referral_menu(message):
     cursor.execute("SELECT referrals FROM users WHERE user_id=?", (user_id,))
     count = cursor.fetchone()[0]
 
-    bonus = count // 5
+    if count >= 20:
+        bonus = 10
+    elif count >= 10:
+        bonus = 3
+    else:
+        bonus = count // 5
 
-    text = f"""🔥 DO‘STLARINGGA ULASHING!
+    text = f"""🔥 REFERAL BO‘LIMI
 
 👥 Takliflar: {count}
 🎁 Bonuslar: {bonus}
@@ -104,7 +132,7 @@ def referral_menu(message):
 
     bot.send_message(message.chat.id, text, reply_markup=markup)
 
-# ====== TOP 5 ======
+# ========= TOP =========
 @bot.message_handler(func=lambda m: m.text == "🏆 Top 5")
 def top_users(message):
     cursor.execute("SELECT user_id, referrals FROM users ORDER BY referrals DESC LIMIT 5")
@@ -116,32 +144,53 @@ def top_users(message):
 
     bot.send_message(message.chat.id, text)
 
-# ====== REKLAMA BERISH ======
+# ========= STATISTIKA =========
+@bot.message_handler(func=lambda m: m.text == "📊 Statistika")
+def stats(message):
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total = cursor.fetchone()[0]
+    bot.send_message(message.chat.id, f"👥 Jami foydalanuvchilar: {total}")
+
+# ========= REKLAMA BUYURTMA =========
 @bot.message_handler(func=lambda m: m.text == "💰 Reklama berish")
 def reklama_buyurtma(message):
     text = f"""💰 REKLAMA NARXLARI:
 
-1 kun — 15 000 so'm
-3 kun — 35 000 so'm
+1 kun — 20 000 so'm
+3 kun — 50 000 so'm
 
 Buyurtma uchun admin:
 {ADMIN_USERNAME}
 """
     bot.send_message(message.chat.id, text)
 
-# ====== ADMIN REKLAMA QO'SHISH ======
+# ========= ADMIN REKLAMA =========
 @bot.message_handler(commands=['reklama'])
 def add_reklama(message):
     if message.from_user.id == ADMIN_ID:
         new_text = message.text.replace("/reklama ", "")
         cursor.execute("UPDATE reklama SET text=?", (new_text,))
         conn.commit()
-        bot.send_message(message.chat.id, "✅ Reklama yangilandi!")
+        bot.send_message(message.chat.id, "✅ Oddiy reklama yangilandi!")
     else:
         bot.send_message(message.chat.id, "❌ Siz admin emassiz")
 
-print("Bot ishga tushdi...")
+# ========= PREMIUM REKLAMA =========
+@bot.message_handler(commands=['premium'])
+def add_premium(message):
+    if message.from_user.id == ADMIN_ID:
+        new_text = message.text.replace("/premium ", "")
+        cursor.execute("UPDATE premium SET text=?", (new_text,))
+        conn.commit()
+        bot.send_message(message.chat.id, "🔥 Premium reklama yangilandi!")
+    else:
+        bot.send_message(message.chat.id, "❌ Siz admin emassiz")
+
+print("Super bot ishga tushdi...")
 bot.infinity_polling()
+
+
+
 
 
 
