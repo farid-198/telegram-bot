@@ -10,15 +10,9 @@ ADMIN_ID = 8577002578  # o'zingizning ID
 ADMIN_USERNAME = "@elon_reklama456"  # reklama uchun
 
 bot = telebot.TeleBot(TOKEN)
-import telebot
-from telebot import types
-import sqlite3
 
-TOKEN = "SENING_TOKENING"
-ADMIN_ID = 123456789
-ADMIN_USERNAME = "@SENING_USERNAME"
 
-bot = telebot.TeleBot(TOKEN)
+
 
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -240,6 +234,7 @@ def bc(message):
 
 print("FINAL BOT ISHLADI")
 bot.infinity_polling()
+
 
 
 
