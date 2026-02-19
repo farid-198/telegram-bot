@@ -11,7 +11,7 @@ ADMIN_USERNAME = "@elon_reklama456"  # reklama uchun
 
 bot = telebot.TeleBot(TOKEN)
 
-# ========= DATABASE =========
+# ====== DATABASE ======
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -22,32 +22,22 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS reklama (
-    text TEXT
-)
-""")
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS premium (
-    text TEXT
-)
-""")
-
+cursor.execute("CREATE TABLE IF NOT EXISTS reklama (text TEXT)")
+cursor.execute("CREATE TABLE IF NOT EXISTS premium (text TEXT)")
 conn.commit()
 
-# default reklama
+# default values
 cursor.execute("SELECT * FROM reklama")
 if not cursor.fetchone():
-    cursor.execute("INSERT INTO reklama (text) VALUES ('Hozircha reklama yo''q')")
+    cursor.execute("INSERT INTO reklama VALUES ('Hozircha reklama yo''q')")
     conn.commit()
 
 cursor.execute("SELECT * FROM premium")
 if not cursor.fetchone():
-    cursor.execute("INSERT INTO premium (text) VALUES ('')")
+    cursor.execute("INSERT INTO premium VALUES ('')")
     conn.commit()
 
-# ========= START =========
+# ====== START ======
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
@@ -57,7 +47,7 @@ def start(message):
     user = cursor.fetchone()
 
     if not user:
-        cursor.execute("INSERT INTO users (user_id) VALUES (?)", (user_id,))
+        cursor.execute("INSERT INTO users VALUES (?,0)", (user_id,))
         conn.commit()
 
         if len(args) > 1:
@@ -66,41 +56,50 @@ def start(message):
                 if ref_id != user_id:
                     cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id=?", (ref_id,))
                     conn.commit()
+
+                    cursor.execute("SELECT referrals FROM users WHERE user_id=?", (ref_id,))
+                    ref_count = cursor.fetchone()[0]
+
+                    if ref_count in [5,10,20]:
+                        bot.send_message(ref_id,
+                            f"🎉 Tabriklaymiz! Siz {ref_count} ta referalga yetdingiz!")
             except:
                 pass
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("👥 Referalim", "🏆 Top 5")
-    markup.add("📊 Statistika")
-    markup.add("💰 Reklama berish")
+    markup.add("📊 Statistika", "💰 Reklama berish")
 
-    cursor.execute("SELECT text FROM reklama")
-    reklama_text = cursor.fetchone()[0]
+    if user_id == ADMIN_ID:
+        markup.add("⚙️ Admin Panel")
+
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total = cursor.fetchone()[0]
 
     cursor.execute("SELECT text FROM premium")
     premium_text = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM users")
-    total_users = cursor.fetchone()[0]
+    cursor.execute("SELECT text FROM reklama")
+    reklama_text = cursor.fetchone()[0]
 
     bot.send_message(message.chat.id,
-                     f"""🔥 BONUS BOTGA XUSH KELIBSIZ!
+        f"""🔥 BONUS BOTGA XUSH KELIBSIZ!
 
-👥 Jami foydalanuvchilar: {total_users}
+👥 Jami foydalanuvchilar: {total}
 
 {premium_text}
 
-🎁 5 ta do‘st = 1 bonus
-🎁 10 ta do‘st = 3 bonus
-🎁 20 ta do‘st = 10 bonus
+🎁 5 = 1 bonus
+🎁 10 = 3 bonus
+🎁 20 = 10 bonus
 
 📢 Reklama:
 {reklama_text}
 """, reply_markup=markup)
 
-# ========= REFERAL =========
+# ====== REFERAL ======
 @bot.message_handler(func=lambda m: m.text == "👥 Referalim")
-def referral_menu(message):
+def referral(message):
     user_id = message.from_user.id
     link = f"https://t.me/{bot.get_me().username}?start={user_id}"
 
@@ -114,87 +113,95 @@ def referral_menu(message):
     else:
         bonus = count // 5
 
-    text = f"""🔥 REFERAL BO‘LIMI
-
-👥 Takliflar: {count}
+    bot.send_message(message.chat.id,
+        f"""👥 Takliflar: {count}
 🎁 Bonuslar: {bonus}
 
-🔗 Sening linking:
+🔗 Linking:
 {link}
-"""
+""")
 
-    markup = types.InlineKeyboardMarkup()
-    share_btn = types.InlineKeyboardButton(
-        "📣 Do‘stlarga ulashish",
-        url=f"https://t.me/share/url?url={link}"
-    )
-    markup.add(share_btn)
-
-    bot.send_message(message.chat.id, text, reply_markup=markup)
-
-# ========= TOP =========
+# ====== TOP ======
 @bot.message_handler(func=lambda m: m.text == "🏆 Top 5")
-def top_users(message):
+def top(message):
     cursor.execute("SELECT user_id, referrals FROM users ORDER BY referrals DESC LIMIT 5")
-    top = cursor.fetchall()
+    top_users = cursor.fetchall()
 
-    text = "🏆 TOP 5 REFERAL:\n\n"
-    for i, user in enumerate(top, start=1):
-        text += f"{i}. ID: {user[0]} — {user[1]} ta\n"
+    text = "🏆 TOP 5:\n\n"
+    for i, user in enumerate(top_users, start=1):
+        try:
+            chat = bot.get_chat(user[0])
+            name = chat.first_name
+        except:
+            name = user[0]
+        text += f"{i}. {name} — {user[1]} ta\n"
 
     bot.send_message(message.chat.id, text)
 
-# ========= STATISTIKA =========
+# ====== STATISTIKA ======
 @bot.message_handler(func=lambda m: m.text == "📊 Statistika")
-def stats(message):
+def stat(message):
     cursor.execute("SELECT COUNT(*) FROM users")
     total = cursor.fetchone()[0]
     bot.send_message(message.chat.id, f"👥 Jami foydalanuvchilar: {total}")
 
-# ========= REKLAMA BUYURTMA =========
+# ====== REKLAMA ======
 @bot.message_handler(func=lambda m: m.text == "💰 Reklama berish")
-def reklama_buyurtma(message):
-    text = f"""💰 REKLAMA NARXLARI:
+def reklama(message):
+    bot.send_message(message.chat.id,
+        f"""💰 NARXLAR:
 
-1 kun — 20 000 so'm
-3 kun — 50 000 so'm
+Oddiy — 20 000 so'm
+Premium — 50 000 so'm
 
-Buyurtma uchun admin:
+Admin:
 {ADMIN_USERNAME}
-"""
-    bot.send_message(message.chat.id, text)
+""")
 
-# ========= ADMIN REKLAMA =========
+# ====== ADMIN PANEL ======
+@bot.message_handler(func=lambda m: m.text == "⚙️ Admin Panel")
+def admin_panel(message):
+    if message.from_user.id == ADMIN_ID:
+        bot.send_message(message.chat.id,
+            """⚙️ Admin buyruqlar:
+
+/reklama matn
+/premium matn
+/broadcast xabar
+""")
+
+# ====== ADMIN REKLAMA ======
 @bot.message_handler(commands=['reklama'])
-def add_reklama(message):
+def set_reklama(message):
     if message.from_user.id == ADMIN_ID:
-        new_text = message.text.replace("/reklama ", "")
-        cursor.execute("UPDATE reklama SET text=?", (new_text,))
+        text = message.text.replace("/reklama ","")
+        cursor.execute("UPDATE reklama SET text=?", (text,))
         conn.commit()
-        bot.send_message(message.chat.id, "✅ Oddiy reklama yangilandi!")
-    else:
-        bot.send_message(message.chat.id, "❌ Siz admin emassiz")
+        bot.send_message(message.chat.id,"✅ Oddiy reklama yangilandi")
 
-# ========= PREMIUM REKLAMA =========
 @bot.message_handler(commands=['premium'])
-def add_premium(message):
+def set_premium(message):
     if message.from_user.id == ADMIN_ID:
-        new_text = message.text.replace("/premium ", "")
-        cursor.execute("UPDATE premium SET text=?", (new_text,))
+        text = message.text.replace("/premium ","")
+        cursor.execute("UPDATE premium SET text=?", (text,))
         conn.commit()
-        bot.send_message(message.chat.id, "🔥 Premium reklama yangilandi!")
-    else:
-        bot.send_message(message.chat.id, "❌ Siz admin emassiz")
+        bot.send_message(message.chat.id,"🔥 Premium reklama yangilandi")
 
-print("Super bot ishga tushdi...")
+# ====== BROADCAST ======
+@bot.message_handler(commands=['broadcast'])
+def broadcast(message):
+    if message.from_user.id == ADMIN_ID:
+        text = message.text.replace("/broadcast ","")
+        cursor.execute("SELECT user_id FROM users")
+        users = cursor.fetchall()
+
+        for user in users:
+            try:
+                bot.send_message(user[0], text)
+            except:
+                pass
+
+        bot.send_message(message.chat.id,"✅ Xabar yuborildi")
+
+print("ULTRA BOT ishga tushdi...")
 bot.infinity_polling()
-
-
-
-
-
-
-
-
-
-
