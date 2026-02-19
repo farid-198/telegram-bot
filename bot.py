@@ -219,7 +219,8 @@ def admin(message):
 
 print("ULTRA FINAL BOT ISHLADI")
 bot.infinity_polling()
-🔥 Endi bu bot real monetizatsiyaga 
+ 
+
 
 
 
