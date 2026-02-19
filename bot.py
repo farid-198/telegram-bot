@@ -2,11 +2,9 @@ import telebot
 from telebot import types
 import sqlite3
 
-TOKEN = "8581414528:AAHImgFvDPlFDN-rRedxIYNc-NrQ_D8IyaU" 
-CHANNEL_USERNAME = "@elonreklama3" 
+TOKEN = "8581414528:AAHImgFvDPlFDN-rRedxIYNc-NrQ_D8IyaU"  
 ADMIN_ID = 8577002578  # o'zingizning ID
 
-# ================= SOZLAMALAR =================
 ADMIN_USERNAME = "@elon_reklama456"  # reklama uchun
 
 bot = telebot.TeleBot(TOKEN)
@@ -222,6 +220,7 @@ def admin(message):
 print("ULTRA FINAL BOT ISHLADI")
 bot.infinity_polling()
 🔥 Endi bu bot real monetizatsiyaga 
+
 
 
 
