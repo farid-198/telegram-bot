@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users(
     user_id INTEGER PRIMARY KEY,
     referrals INTEGER DEFAULT 0,
     balance INTEGER DEFAULT 0,
-    referred_by INTEGER DEFAULT NULL,
+    referred_by INTEGER,
     vip INTEGER DEFAULT 0
 )
 """)
@@ -66,23 +66,19 @@ def start(message):
             try:
                 ref_id = int(args[1])
                 if ref_id != user_id:
-                    if cursor.execute("SELECT * FROM users WHERE user_id=?",(ref_id,)).fetchone():
-                        referred_by = ref_id
+                    ref_user = cursor.execute(
+                        "SELECT referrals,vip FROM users WHERE user_id=?",
+                        (ref_id,)
+                    ).fetchone()
 
-                        ref_data = cursor.execute(
-                            "SELECT referrals,vip FROM users WHERE user_id=?",
-                            (ref_id,)
-                        ).fetchone()
-
-                        referrals = ref_data[0]
-                        vip = ref_data[1]
-
+                    if ref_user:
+                        referrals, vip = ref_user
                         reward = 1500 if vip else 1000
 
                         cursor.execute("""
                             UPDATE users
-                            SET referrals=referrals+1,
-                                balance=balance+?
+                            SET referrals = referrals + 1,
+                                balance = balance + ?
                             WHERE user_id=?
                         """,(reward,ref_id))
                         conn.commit()
@@ -90,13 +86,18 @@ def start(message):
                         new_count = referrals + 1
 
                         if new_count >= 20:
-                            cursor.execute("UPDATE users SET vip=1 WHERE user_id=?",(ref_id,))
+                            cursor.execute(
+                                "UPDATE users SET vip=1 WHERE user_id=?",
+                                (ref_id,))
                             conn.commit()
 
                         if new_count in [5,10,20]:
-                            bot.send_message(ref_id,
-                                f"🎉 {new_count} ta referalga yetdingiz!")
+                            bot.send_message(
+                                ref_id,
+                                f"🎉 {new_count} ta referalga yetdingiz!"
+                            )
 
+                        referred_by = ref_id
             except:
                 pass
 
@@ -106,10 +107,9 @@ def start(message):
         """,(user_id,referred_by))
         conn.commit()
 
-    # ===== PREMIUM CHECK =====
+    # PREMIUM CHECK
     premium = cursor.execute("SELECT text,expire FROM premium").fetchone()
-    premium_text = premium[0]
-    expire = premium[1]
+    premium_text, expire = premium
 
     if time.time() > expire:
         premium_text = ""
@@ -139,19 +139,42 @@ f"""🔥 BUSINESS BONUS BOT
 {reklama}
 """,reply_markup=markup)
 
+# ===== REFERAL =====
+@bot.message_handler(func=lambda m: m.text=="👥 Referalim")
+def referral(message):
+    user_id = message.from_user.id
+    link = f"https://t.me/{bot.get_me().username}?start={user_id}"
+
+    count = cursor.execute(
+        "SELECT referrals FROM users WHERE user_id=?",
+        (user_id,)
+    ).fetchone()[0]
+
+    bot.send_message(message.chat.id,
+f"""👥 Takliflar: {count}
+
+🔗 Linking:
+{link}
+""")
+
 # ===== BALANS =====
 @bot.message_handler(func=lambda m: m.text=="💳 Balans")
 def balans(message):
-    bal = cursor.execute("SELECT balance FROM users WHERE user_id=?",
-        (message.from_user.id,)).fetchone()[0]
+    bal = cursor.execute(
+        "SELECT balance FROM users WHERE user_id=?",
+        (message.from_user.id,)
+    ).fetchone()[0]
+
     bot.send_message(message.chat.id,f"💰 Balans: {bal} so'm")
 
 # ===== WITHDRAW =====
 @bot.message_handler(func=lambda m: m.text=="💸 Pul yechish")
 def withdraw(message):
     user_id = message.from_user.id
-    bal = cursor.execute("SELECT balance FROM users WHERE user_id=?",
-        (user_id,)).fetchone()[0]
+    bal = cursor.execute(
+        "SELECT balance FROM users WHERE user_id=?",
+        (user_id,)
+    ).fetchone()[0]
 
     pending = cursor.execute("""
         SELECT * FROM withdrawals
@@ -159,7 +182,7 @@ def withdraw(message):
     """,(user_id,)).fetchone()
 
     if pending:
-        bot.send_message(message.chat.id,"⏳ Oldingi so‘rov ko‘rib chiqilmoqda")
+        bot.send_message(message.chat.id,"⏳ So‘rovingiz ko‘rib chiqilmoqda")
         return
 
     if bal < 10000:
@@ -173,8 +196,10 @@ def process_card(message):
     user_id = message.from_user.id
     card = message.text
 
-    bal = cursor.execute("SELECT balance FROM users WHERE user_id=?",
-        (user_id,)).fetchone()[0]
+    bal = cursor.execute(
+        "SELECT balance FROM users WHERE user_id=?",
+        (user_id,)
+    ).fetchone()[0]
 
     cursor.execute("""
         INSERT INTO withdrawals(user_id,amount,card)
@@ -183,7 +208,7 @@ def process_card(message):
     conn.commit()
 
     bot.send_message(ADMIN_ID,
-f"""💸 So‘rov
+f"""💸 Yangi so‘rov
 
 User: {user_id}
 Summa: {bal}
@@ -198,7 +223,7 @@ Rad:
 
     bot.send_message(user_id,"✅ So‘rov yuborildi")
 
-# ===== ADMIN APPROVE =====
+# ===== ADMIN =====
 @bot.message_handler(func=lambda m: m.text.startswith("/approve_"))
 def approve(message):
     if message.from_user.id==ADMIN_ID:
@@ -216,31 +241,31 @@ def reject(message):
         conn.commit()
         bot.send_message(uid,"❌ Rad etildi")
 
-# ===== ADMIN PANEL =====
-@bot.message_handler(func=lambda m: m.text=="⚙️ Admin Panel")
-def admin_panel(message):
-    if message.from_user.id==ADMIN_ID:
-        bot.send_message(message.chat.id,
-"""⚙️ Buyruqlar:
+# ===== TOP =====
+@bot.message_handler(func=lambda m: m.text=="🏆 Top 5")
+def top(message):
+    users = cursor.execute(
+        "SELECT user_id,referrals FROM users ORDER BY referrals DESC LIMIT 5"
+    ).fetchall()
 
-/reklama matn
-/premium matn
-/broadcast xabar
-""")
+    text="🏆 TOP 5:\n\n"
+    for i,u in enumerate(users,1):
+        try:
+            name = bot.get_chat(u[0]).first_name
+        except:
+            name = str(u[0])
+        text+=f"{i}. {name} — {u[1]} ta\n"
 
-@bot.message_handler(commands=['premium'])
-def set_premium(message):
-    if message.from_user.id==ADMIN_ID:
-        text = message.text.replace("/premium ","")
-        expire = int(time.time()) + 86400
-        cursor.execute("DELETE FROM premium")
-        cursor.execute("INSERT INTO premium VALUES(?,?)",(text,expire))
-        conn.commit()
-        bot.send_message(message.chat.id,"🔥 Premium 24 soatga yoqildi")
+    bot.send_message(message.chat.id,text)
 
-print("ULTIMATE BUSINESS BOT ISHLADI")
+# ===== STAT =====
+@bot.message_handler(func=lambda m: m.text=="📊 Statistika")
+def stat(message):
+    total = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    bot.send_message(message.chat.id,f"👥 Jami foydalanuvchilar: {total}")
+
+print("MEGA COMPLETE BOT ISHLADI")
 bot.infinity_polling()
-
 
 
 
